@@ -47,6 +47,7 @@ export class TerminalSession {
   private dataListeners: Array<(data: string) => void> = [];
   private exitListeners: Array<(id: string, exitCode: number) => void> = [];
   private _termTitle: string = "";
+  private _respawnCommand: string | undefined;
 
   constructor(opts: TerminalSessionOptions) {
     this.id = opts.id;
@@ -72,7 +73,7 @@ export class TerminalSession {
       cols,
       rows,
       cwd: this.cwd,
-      env: (() => { const e: Record<string, string> = { ...process.env, ...opts.env } as Record<string, string>; delete e.CLAUDECODE; return e; })(),
+      env: this.buildPtyEnv(opts.env),
     });
 
     this.xterm.onTitleChange((title: string) => {
@@ -80,25 +81,7 @@ export class TerminalSession {
       this.autoDetectAgentTags(title);
     });
 
-    this.ptyProcess.onData((data: string) => {
-      this.lastActivityAt = new Date();
-      this.ringBuffer.write(data);
-      this.xterm.write(data);
-      this.resetIdleTimer();
-      for (const fn of this.dataListeners) fn(data);
-    });
-
-    this.ptyProcess.onExit(({ exitCode }) => {
-      this._status = "exited";
-      this._exitCode = exitCode;
-      this._exitedAt = new Date();
-      this.clearIdleTimer();
-      logger.info("Session exited", { id: this.id, exitCode });
-      this.onExitCallback?.(this.id, exitCode);
-      for (const fn of this.exitListeners) fn(this.id, exitCode);
-    });
-
-    this.resetIdleTimer();
+    this.wirePtyHandlers();
     logger.info("Session created", { id: this.id, command: opts.command, pid: this.ptyProcess.pid });
   }
 
@@ -314,6 +297,74 @@ export class TerminalSession {
   preserveAfterExit(): void {
     this.clearIdleTimer();
     this.idleTimeout = 0;
+  }
+
+  /** When the PTY exits, respawn a shell instead of marking the session as exited */
+  enableRespawnOnExit(shell: string): void {
+    this._respawnCommand = shell;
+  }
+
+  /** Spawn a new shell PTY after the agent process exits, keeping the session alive */
+  private respawnShell(agentExitCode: number): void {
+    const shell = this._respawnCommand!;
+    // Only respawn once — clear so the shell exit behaves normally
+    this._respawnCommand = undefined;
+
+    logger.info("Agent exited, respawning shell", { id: this.id, agentExitCode, shell });
+
+    // Write a visual separator so the user knows the agent exited
+    const exitMsg = `\r\n\x1b[90m[agent exited with code ${agentExitCode} — shell restored]\x1b[0m\r\n`;
+    this.ringBuffer.write(exitMsg);
+    this.xterm.write(exitMsg);
+    for (const fn of this.dataListeners) fn(exitMsg);
+
+    // Spawn a new PTY with the user's shell
+    this.ptyProcess = ptySpawn(shell, [], {
+      name: "xterm-256color",
+      cols: this.xterm.cols,
+      rows: this.xterm.rows,
+      cwd: this.cwd,
+      env: this.buildPtyEnv(),
+    });
+
+    this.wirePtyHandlers();
+  }
+
+  private buildPtyEnv(extra?: Record<string, string>): Record<string, string> {
+    const env: Record<string, string> = { ...process.env, ...extra } as Record<string, string>;
+    delete env.CLAUDECODE;
+    return env;
+  }
+
+  private wirePtyHandlers(): void {
+    this.ptyProcess.onData((data: string) => {
+      this.lastActivityAt = new Date();
+      this.ringBuffer.write(data);
+      this.xterm.write(data);
+      this.resetIdleTimer();
+      for (const fn of this.dataListeners) fn(data);
+    });
+
+    this.ptyProcess.onExit(({ exitCode }) => {
+      if (this._respawnCommand) {
+        // Notify listeners of the agent's exit BEFORE respawning, so
+        // waitForExit / waitForTurnCompletion resolve with the agent's code.
+        this._exitCode = exitCode;
+        this.onExitCallback?.(this.id, exitCode);
+        for (const fn of [...this.exitListeners]) fn(this.id, exitCode);
+        this.respawnShell(exitCode);
+        return;
+      }
+      this._status = "exited";
+      this._exitCode = exitCode;
+      this._exitedAt = new Date();
+      this.clearIdleTimer();
+      logger.info("Session exited", { id: this.id, exitCode });
+      this.onExitCallback?.(this.id, exitCode);
+      for (const fn of this.exitListeners) fn(this.id, exitCode);
+    });
+
+    this.resetIdleTimer();
   }
 
   private clearIdleTimer(): void {
