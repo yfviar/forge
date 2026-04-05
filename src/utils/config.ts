@@ -57,6 +57,8 @@ function parseCli(argv: string[]): Partial<ForgeConfig> {
   const gdm = strArg(argv, "--gemini-default-model");  if (gdm !== undefined) result.geminiDefaultModel = gdm;
   const at = strArg(argv, "--auth-token");     if (at !== undefined) result.authToken = at;
   const et = intArg(argv, "--exited-ttl");     if (et !== undefined) result.exitedTtl = et;
+  const wp = strArg(argv, "--whisper-path");   if (wp !== undefined) result.whisperPath = wp;
+  const wm = strArg(argv, "--whisper-model-path");  if (wm !== undefined) result.whisperModelPath = wm;
   return result;
 }
 
@@ -78,6 +80,8 @@ function parseEnv(): Partial<ForgeConfig> {
   if (process.env.FORGE_GEMINI_DEFAULT_MODEL) result.geminiDefaultModel = process.env.FORGE_GEMINI_DEFAULT_MODEL;
   if (process.env.FORGE_AUTH_TOKEN) result.authToken = process.env.FORGE_AUTH_TOKEN;
   const et = envInt("FORGE_EXITED_TTL");       if (et !== undefined) result.exitedTtl = et;
+  if (process.env.FORGE_WHISPER_PATH) result.whisperPath = process.env.FORGE_WHISPER_PATH;
+  if (process.env.FORGE_WHISPER_MODEL_PATH) result.whisperModelPath = process.env.FORGE_WHISPER_MODEL_PATH;
   return result;
 }
 
@@ -105,6 +109,8 @@ export function loadSettingsFile(): Partial<ForgeConfig> {
     if (parsed.agents && typeof parsed.agents === "object" && !Array.isArray(parsed.agents)) {
       result.agents = parseAgentsConfig(parsed.agents);
     }
+    if (typeof parsed.whisperPath === "string" && parsed.whisperPath) result.whisperPath = parsed.whisperPath;
+    if (typeof parsed.whisperModelPath === "string" && parsed.whisperModelPath) result.whisperModelPath = parsed.whisperModelPath;
     return result;
   } catch {
     return {};
@@ -184,6 +190,8 @@ function merge(cli: Partial<ForgeConfig>, env: Partial<ForgeConfig>, file: Parti
     authToken:     cli.authToken     ?? env.authToken     ?? file.authToken     ?? DEFAULT_CONFIG.authToken,
     exitedTtl:     cli.exitedTtl     ?? env.exitedTtl     ?? file.exitedTtl     ?? DEFAULT_CONFIG.exitedTtl,
     agents:        file.agents       ?? DEFAULT_CONFIG.agents,
+    whisperPath:   cli.whisperPath   ?? env.whisperPath   ?? file.whisperPath   ?? DEFAULT_CONFIG.whisperPath,
+    whisperModelPath:  cli.whisperModelPath  ?? env.whisperModelPath  ?? file.whisperModelPath  ?? DEFAULT_CONFIG.whisperModelPath,
   };
 }
 

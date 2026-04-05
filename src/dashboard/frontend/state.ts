@@ -32,6 +32,9 @@ const chatSearchQuery = signal('');
 const activeSessionMenu = signal(null);
 const renamingSessionId = signal(null);
 const chatMessages = signal([]);
+const voiceAvailable = signal(false);
+const voiceState = signal('idle'); // 'idle' | 'recording' | 'transcribing'
+const voiceError = signal(''); // brief error message shown in status bar
 var jsonBuf = '';
 
 // --- Split Pane State ---
@@ -214,6 +217,7 @@ function connect() {
   ws.onopen = function() {
     wsConnected.value = true;
     wsSend({ type: 'list' });
+    checkVoiceAvailable();
   };
   ws.onclose = function() {
     wsConnected.value = false;
@@ -561,5 +565,103 @@ function createCopilotSession(cwd) {
 
 function createDeepAgentsSession(cwd) {
   createTerminal({ agent: 'deep-agents', cwd: cwd });
+}
+
+// --- Voice Input ---
+var _voiceMediaRecorder = null;
+var _voiceChunks = [];
+var _voiceStream = null;
+
+function checkVoiceAvailable() {
+  fetch(apiBase + '/api/transcribe', { headers: authHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(data) { voiceAvailable.value = !!data.available; })
+    .catch(function() { voiceAvailable.value = false; });
+}
+
+function showVoiceError(msg) {
+  voiceError.value = msg;
+  setTimeout(function() { voiceError.value = ''; }, 4000);
+}
+
+function startVoiceRecording() {
+  if (voiceState.value !== 'idle') return;
+  if (!activeSessionId.value) return;
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showVoiceError('Microphone not available (requires HTTPS)');
+    return;
+  }
+
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+    _voiceStream = stream;
+    _voiceChunks = [];
+
+    // Pick a supported mime type
+    var mimeType = 'audio/webm';
+    if (typeof MediaRecorder.isTypeSupported === 'function') {
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) mimeType = 'audio/webm;codecs=opus';
+      else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) mimeType = 'audio/ogg;codecs=opus';
+      else if (MediaRecorder.isTypeSupported('audio/mp4')) mimeType = 'audio/mp4';
+    }
+
+    _voiceMediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
+    _voiceMediaRecorder.ondataavailable = function(e) {
+      if (e.data.size > 0) _voiceChunks.push(e.data);
+    };
+    _voiceMediaRecorder.onstop = function() {
+      // Stop microphone
+      _voiceStream.getTracks().forEach(function(t) { t.stop(); });
+      _voiceStream = null;
+
+      if (_voiceChunks.length === 0) {
+        voiceState.value = 'idle';
+        return;
+      }
+
+      voiceState.value = 'transcribing';
+      var blob = new Blob(_voiceChunks, { type: mimeType });
+      _voiceChunks = [];
+
+      var form = new FormData();
+      form.append('file', blob, 'recording.webm');
+
+      fetch(apiBase + '/api/transcribe', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: form,
+      }).then(function(r) {
+        if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Transcription failed'); });
+        return r.json();
+      }).then(function(data) {
+        voiceState.value = 'idle';
+        if (data.text && activeSessionId.value) {
+          wsSend({ type: 'input', sessionId: activeSessionId.value, data: data.text });
+        }
+      }).catch(function(err) {
+        voiceState.value = 'idle';
+        showVoiceError('Transcription failed: ' + (err.message || err));
+        console.error('Transcription error:', err);
+      });
+    };
+
+    _voiceMediaRecorder.start();
+    voiceState.value = 'recording';
+  }).catch(function(err) {
+    showVoiceError('Microphone access denied');
+    console.error('Microphone access denied:', err);
+    voiceState.value = 'idle';
+  });
+}
+
+function stopVoiceRecording() {
+  if (voiceState.value !== 'recording' || !_voiceMediaRecorder) return;
+  _voiceMediaRecorder.stop();
+  _voiceMediaRecorder = null;
+}
+
+function toggleVoiceRecording() {
+  if (voiceState.value === 'recording') stopVoiceRecording();
+  else if (voiceState.value === 'idle') startVoiceRecording();
 }
 `;
