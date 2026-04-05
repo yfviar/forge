@@ -924,7 +924,8 @@ export function createServer(configSource: ConfigSource, existingManager?: Sessi
       waitForExit: z.boolean().optional().describe("Wait for the process to exit instead of matching a pattern"),
       timeout: z.number().int().min(100).max(300_000).optional().describe("Timeout in ms (default: 30000)"),
     },
-    async (params) => {
+    async (params, extra) => {
+      let progressInterval: ReturnType<typeof setInterval> | null = null;
       try {
         if (!params.pattern && !params.waitForExit) {
           return {
@@ -937,10 +938,23 @@ export function createServer(configSource: ConfigSource, existingManager?: Sessi
         const timeoutMs = params.timeout ?? 30_000;
         const start = Date.now();
 
+        // Progress notification helper
+        const progressToken = extra?._meta?.progressToken;
+        let progressTick = 0;
+        const progressTotal = Math.ceil(timeoutMs / 2000);
+        progressInterval = progressToken ? setInterval(() => {
+          progressTick++;
+          void extra.sendNotification({
+            method: "notifications/progress",
+            params: { progressToken, progress: progressTick, total: progressTotal },
+          }).catch(() => {});
+        }, 2000) : null;
+
         // --- waitForExit mode ---
         if (params.waitForExit) {
           // Check if already exited
           if (session.status === "exited") {
+            if (progressInterval) clearInterval(progressInterval);
             return {
               content: [{
                 type: "text" as const,
@@ -957,6 +971,7 @@ export function createServer(configSource: ConfigSource, existingManager?: Sessi
               settled = true;
               unsubExit();
               clearTimeout(timer);
+              if (progressInterval) clearInterval(progressInterval);
             };
 
             const unsubExit = session.onExit((_id, exitCode) => {
@@ -985,6 +1000,7 @@ export function createServer(configSource: ConfigSource, existingManager?: Sessi
         try {
           regex = new RegExp(params.pattern!);
         } catch {
+          if (progressInterval) clearInterval(progressInterval);
           return {
             content: [{ type: "text" as const, text: `Invalid regex: "${params.pattern}"` }],
             isError: true,
@@ -995,6 +1011,7 @@ export function createServer(configSource: ConfigSource, existingManager?: Sessi
         const backlog = session.readFullBuffer();
         const backlogMatch = backlog.match(regex);
         if (backlogMatch) {
+          if (progressInterval) clearInterval(progressInterval);
           return {
             content: [{
               type: "text" as const,
@@ -1014,6 +1031,7 @@ export function createServer(configSource: ConfigSource, existingManager?: Sessi
             unsubData();
             unsubExit();
             clearTimeout(timer);
+            if (progressInterval) clearInterval(progressInterval);
           };
 
           const unsubData = session.onData((chunk) => {
@@ -1046,6 +1064,7 @@ export function createServer(configSource: ConfigSource, existingManager?: Sessi
           }],
         };
       } catch (err) {
+        if (progressInterval) clearInterval(progressInterval);
         return {
           content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }],
           isError: true,
@@ -1641,10 +1660,29 @@ export function createServer(configSource: ConfigSource, existingManager?: Sessi
       worktree: z.boolean().optional().describe("Create a git worktree for isolated file changes"),
       branch: z.string().optional().describe("Branch name for the worktree (required when worktree: true)"),
     },
-    async (params) => {
+    async (params, extra) => {
       const timeoutMs = params.timeout ?? 300_000;
       const start = Date.now();
       const isInteractive = params.mode === "interactive";
+
+      // Progress notification helper
+      const progressToken = extra?._meta?.progressToken;
+      let progressTick = 0;
+      const progressTotal = Math.ceil(timeoutMs / 2000);
+      let activeProgressInterval: ReturnType<typeof setInterval> | null = null;
+      const startProgress = () => {
+        if (!progressToken) return null;
+        progressTick = 0;
+        const interval = setInterval(() => {
+          progressTick++;
+          void extra.sendNotification({
+            method: "notifications/progress",
+            params: { progressToken, progress: progressTick, total: progressTotal },
+          }).catch(() => {});
+        }, 2000);
+        activeProgressInterval = interval;
+        return interval;
+      };
 
       // Format prompt with orchestrator attribution
       const formattedPrompt = params.from
@@ -1698,7 +1736,9 @@ export function createServer(configSource: ConfigSource, existingManager?: Sessi
           }
 
           // Wait for the agent to finish its turn
+          const followUpProgressInterval = startProgress();
           const turnResult = await waitForTurnCompletion(session, agentType, timeoutMs);
+          if (followUpProgressInterval) clearInterval(followUpProgressInterval);
           const duration = Date.now() - start;
 
           const rawOutput = session.readFullBuffer();
@@ -1880,7 +1920,9 @@ export function createServer(configSource: ConfigSource, existingManager?: Sessi
         if (isInteractive) {
           // Prompt was passed as CLI arg — agent starts processing immediately.
           // Wait for the agent to finish its turn.
+          const interactiveProgressInterval = startProgress();
           const turnResult = await waitForTurnCompletion(session, params.agent, timeoutMs);
+          if (interactiveProgressInterval) clearInterval(interactiveProgressInterval);
           const duration = Date.now() - start;
 
           const rawOutput = session.readFullBuffer();
@@ -1942,6 +1984,7 @@ export function createServer(configSource: ConfigSource, existingManager?: Sessi
         }
 
         // ─── Oneshot mode: wait for process exit ───
+        const oneshotProgressInterval = startProgress();
         const exitResult = await new Promise<{ exited: boolean; exitCode?: number }>((resolve) => {
           let settled = false;
 
@@ -1950,9 +1993,11 @@ export function createServer(configSource: ConfigSource, existingManager?: Sessi
             settled = true;
             unsubExit();
             clearTimeout(timer);
+            if (oneshotProgressInterval) clearInterval(oneshotProgressInterval);
           };
 
           if (session!.status === "exited") {
+            cleanup();
             resolve({ exited: true, exitCode: session!.exitCode });
             return;
           }
@@ -2016,6 +2061,7 @@ export function createServer(configSource: ConfigSource, existingManager?: Sessi
           }],
         };
       } catch (err) {
+        if (activeProgressInterval) clearInterval(activeProgressInterval);
         return {
           content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }],
           isError: true,
