@@ -280,6 +280,8 @@ export class WsHandler {
         ...s,
         tokenUsage: session?.getStats() ?? null,
         claudeState: session?.claudeState ?? null,
+        completionStatus: session?.completionStatus ?? null,
+        completionResult: session?.completionResult ?? null,
       };
     });
     this.broadcast({
