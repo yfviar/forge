@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -5,6 +6,12 @@ import { createServer } from "../../src/server.js";
 import { DEFAULT_CONFIG } from "../../src/core/types.js";
 import type { SessionManager } from "../../src/core/session-manager.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+
+function cliExists(bin: string): boolean {
+  try { execFileSync("which", [bin], { stdio: "ignore" }); return true; } catch { return false; }
+}
+const hasClaude = cliExists("claude");
+const hasCodex = cliExists("codex");
 
 describe("MCP Tools E2E", () => {
   let client: Client;
@@ -187,7 +194,7 @@ describe("MCP Tools E2E", () => {
 
   // --- spawn_claude tests ---
 
-  it("spawn_claude creates session with auto-name and claude-agent tag", async () => {
+  it.skipIf(!hasClaude)("spawn_claude creates session with auto-name and claude-agent tag", async () => {
     const result = await client.callTool({
       name: "spawn_claude",
       arguments: { prompt: "say hello world" },
@@ -198,7 +205,7 @@ describe("MCP Tools E2E", () => {
     expect(info.command).toMatch(/claude$/);
   });
 
-  it("spawn_claude accepts name/tags overrides", async () => {
+  it.skipIf(!hasClaude)("spawn_claude accepts name/tags overrides", async () => {
     const result = await client.callTool({
       name: "spawn_claude",
       arguments: {
@@ -216,7 +223,7 @@ describe("MCP Tools E2E", () => {
 
   // --- spawn_codex tests ---
 
-  it("spawn_codex creates session with auto-name and codex-agent tag", async () => {
+  it.skipIf(!hasCodex)("spawn_codex creates session with auto-name and codex-agent tag", async () => {
     const result = await client.callTool({
       name: "spawn_codex",
       arguments: { prompt: "fix the tests" },
@@ -227,7 +234,7 @@ describe("MCP Tools E2E", () => {
     expect(info.command).toMatch(/codex$/);
   });
 
-  it("spawn_codex accepts name/tags overrides", async () => {
+  it.skipIf(!hasCodex)("spawn_codex accepts name/tags overrides", async () => {
     const result = await client.callTool({
       name: "spawn_codex",
       arguments: {
@@ -242,7 +249,7 @@ describe("MCP Tools E2E", () => {
     expect(info.tags).toContain("research");
   });
 
-  it("spawn_codex without prompt creates interactive session", async () => {
+  it.skipIf(!hasCodex)("spawn_codex without prompt creates interactive session", async () => {
     const result = await client.callTool({
       name: "spawn_codex",
       arguments: {},
@@ -262,7 +269,7 @@ describe("MCP Tools E2E", () => {
     expect(result.isError).toBe(true);
   });
 
-  it("spawn_codex fromSession copies cwd", async () => {
+  it.skipIf(!hasCodex)("spawn_codex fromSession copies cwd", async () => {
     // Create a source session
     const source = await client.callTool({
       name: "create_terminal",
@@ -285,6 +292,20 @@ describe("MCP Tools E2E", () => {
     });
     expect(result.isError).toBe(true);
     expect((result.content as Array<{ type: string; text: string }>)[0].text).toContain("not found");
+  });
+
+  it("spawn_agent returns clear error when CLI binary is not installed", async () => {
+    const result = await client.callTool({
+      name: "spawn_agent",
+      arguments: { agent: "codex", prompt: "hello" },
+    });
+    if (!hasCodex) {
+      expect(result.isError).toBe(true);
+      expect((result.content as Array<{ type: string; text: string }>)[0].text).toContain("CLI not found");
+    } else {
+      // If codex is installed, spawn should succeed
+      expect(result.isError).toBeFalsy();
+    }
   });
 
   // --- MCP Resource tests ---
