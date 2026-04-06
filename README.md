@@ -50,6 +50,9 @@ Works with **any MCP-compatible client** — Claude Code, Codex, Gemini CLI, or 
 ## Install
 
 ```bash
+# bun (recommended)
+bun install -g forge-terminal-mcp
+
 # npm (requires Node.js ≥ 18)
 npm install -g forge-terminal-mcp
 
@@ -68,6 +71,9 @@ forge start -d --dashboard --port 3141   # With web dashboard
 ### Update
 
 ```bash
+# bun
+bun update -g forge-terminal-mcp
+
 # npm
 npm update -g forge-terminal-mcp
 
