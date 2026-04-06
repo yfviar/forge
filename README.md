@@ -47,20 +47,39 @@ Works with **any MCP-compatible client** — Claude Code, Codex, Gemini CLI, or 
 - **Web dashboard** — real-time Preact-based browser UI to watch what your agents are doing across all terminals, browse past chat sessions, and monitor activity
 - **Zero config** — single `npx` command or HTTP MCP endpoint
 
-## Quick Start
-
-### 1. Add to Your Agent
-
-<details>
-<summary><strong>Standalone binary (no Node.js required)</strong></summary>
+## Install
 
 ```bash
+# npm (requires Node.js ≥ 18)
+npm install -g forge-terminal-mcp
+
+# Or standalone binary (no Node.js required)
 curl -fsSL https://forgemcp.dev/install.sh | sh
 ```
 
-Downloads a prebuilt binary for macOS (arm64/x64) or Linux (x64/arm64) to `~/.local/bin`.
+After install, the `forge` command is available globally:
 
-</details>
+```bash
+forge start              # Start the server
+forge start -d           # Start as background daemon
+forge start -d --dashboard --port 3141   # With web dashboard
+```
+
+### Update
+
+```bash
+# npm
+npm update -g forge-terminal-mcp
+
+# Standalone binary — re-run the install script
+curl -fsSL https://forgemcp.dev/install.sh | sh
+
+# Desktop app updates automatically on restart
+```
+
+## Quick Start
+
+### 1. Add to Your Agent
 
 <details open>
 <summary><strong>Claude Code</strong></summary>
