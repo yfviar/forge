@@ -619,9 +619,9 @@ Example with custom config:
 ## Architecture
 
 ```
-MCP Client   <--stdio-->  MCP Server (23 tools + 1 resource)
-(Claude Code,    or
- Codex, etc) <--HTTP--->
+MCP Client   <--HTTP-->  MCP Server (23 tools + 1 resource)
+(Claude Code,
+ Codex, etc)
                               |
                          SessionManager
                          (lifecycle, groups, persistence)
@@ -641,7 +641,7 @@ MCP Client   <--stdio-->  MCP Server (23 tools + 1 resource)
          (incremental)   (live stream)   (notifications)
 ```
 
-- **Single Node.js process** — MCP server communicates over stdio (JSON-RPC) or HTTP (streamable)
+- **Single Node.js process** — MCP server communicates over HTTP (streamable)
 - **All logging to stderr** — stdout is reserved for the MCP protocol
 - **Ring buffer per session** — 1 MB circular buffer with cursor-based reads. When the buffer fills, old data is overwritten and `droppedBytes` tells the consumer how much was lost
 - **Headless xterm per session** — full terminal emulation server-side. `read_screen` returns the rendered viewport, correctly handling cursor positioning, alternate screen, line wrapping
@@ -667,7 +667,7 @@ npm run dev         # Watch mode
 
 ```
 src/
-  cli.ts                        # Entry point, arg parsing, stdio transport
+  cli.ts                        # Entry point, arg parsing, daemon management
   server.ts                     # McpServer + 22 tool registrations + resources
   core/
     types.ts                    # ForgeConfig, SessionInfo, defaults

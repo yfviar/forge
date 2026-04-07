@@ -8,7 +8,7 @@ Living document. Updated as the codebase evolves.
 
 ## What Forge Is
 
-A Node.js MCP server that gives AI coding agents (Claude Code, Codex, or any MCP client) persistent PTY terminal sessions. Communicates over stdio (JSON-RPC) or HTTP, manages real terminal processes via `node-pty`, and optionally serves a web dashboard for live monitoring. Also available as a native macOS desktop app via Electron.
+A Node.js MCP server that gives AI coding agents (Claude Code, Codex, or any MCP client) persistent PTY terminal sessions. Communicates over HTTP (streamable MCP), manages real terminal processes via `node-pty`, and serves a web dashboard for live monitoring. Also available as a native macOS desktop app via Electron.
 
 ## System Overview
 
@@ -16,7 +16,7 @@ A Node.js MCP server that gives AI coding agents (Claude Code, Codex, or any MCP
                      ┌─────────────────────────────────────────┐
                      │         MCP Client (any agent)            │
                      └──────────────┬──────────────────────────┘
-                                    │ stdio (JSON-RPC) or HTTP
+                                    │ HTTP (streamable MCP)
                      ┌──────────────▼──────────────────────────┐
                      │          MCP Server (server.ts)          │
                      │  23 tools + 1 resource template          │
