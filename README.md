@@ -91,25 +91,15 @@ curl -fsSL https://forgemcp.dev/install.sh | sh
 <summary><strong>Claude Code</strong></summary>
 
 ```bash
-# Basic (stdio)
-claude mcp add forge -- npx forge-terminal-mcp
+# Recommended: auto-starts daemon and registers HTTP transport
+forge setup --agent claude-code
 
-# With web dashboard
-claude mcp add forge -- npx forge-terminal-mcp --dashboard --port 3141
+# Or manually:
+forge start -d                  # Start daemon in background
+claude mcp add --transport http forge http://127.0.0.1:3141/mcp
 ```
 
-Or add to `~/.claude/settings.json`:
-
-```json
-{
-  "mcpServers": {
-    "forge": {
-      "command": "npx",
-      "args": ["forge-terminal-mcp", "--dashboard", "--port", "3141"]
-    }
-  }
-}
-```
+> **Note:** Always use HTTP transport so Claude Code connects to the running daemon. This ensures sessions appear in the dashboard and avoids conflicts from isolated processes.
 
 </details>
 
