@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { homedir } from "node:os";
 import { createServer } from "./server.js";
-import { parseConfig, ConfigManager } from "./utils/config.js";
+import { ConfigManager } from "./utils/config.js";
 import { logger, setLogLevel } from "./utils/logger.js";
 import {
   DEFAULT_PORT,
@@ -175,85 +175,6 @@ async function cmdStatus(): Promise<void> {
   } catch {
     process.stderr.write(`Forge daemon: running (PID ${status.pid})\n  URL: http://127.0.0.1:${DEFAULT_PORT}\n`);
   }
-}
-
-async function cmdStdioProxy(args: string[]): Promise<void> {
-  // Legacy stdio mode: creates a standalone MCP server (NOT connected to daemon).
-  // Sessions created here are isolated and won't appear in the dashboard.
-  // Prefer HTTP transport for full integration. See https://forgemcp.dev/docs
-  process.stderr.write(
-    "\n⚠️  Forge stdio mode creates an isolated server — sessions won't appear in the dashboard.\n" +
-    "   For full dashboard integration, use HTTP transport instead:\n\n" +
-    "   1. Start daemon:  forge start -d\n" +
-    `   2. Configure MCP: claude mcp add --transport http forge http://127.0.0.1:${DEFAULT_PORT}/mcp\n\n` +
-    "   See: https://forgemcp.dev/docs for setup instructions\n\n"
-  );
-  // Auto-start daemon if not running
-  const status = await getDaemonStatus();
-  if (!status.running) {
-    // Start daemon in background
-    const child = spawn(process.argv[0], [process.argv[1], "start", ...args], {
-      detached: true,
-      stdio: "ignore",
-      env: { ...process.env, FORGE_DAEMON: "1" },
-    });
-    child.unref();
-
-    // Wait for daemon to be ready
-    const deadline = Date.now() + 10_000;
-    while (Date.now() < deadline) {
-      try {
-        await fetch(`http://127.0.0.1:${DEFAULT_PORT}/api/sessions`);
-        break;
-      } catch {
-        await new Promise((r) => setTimeout(r, 300));
-      }
-    }
-  }
-
-  // Bridge stdio to HTTP MCP
-  // Read JSON-RPC messages from stdin, POST to /mcp, stream responses to stdout
-  const { StdioServerTransport } = await import("@modelcontextprotocol/sdk/server/stdio.js");
-  const configManager = new ConfigManager(args);
-  const config = configManager.config;
-
-  if (args.includes("--verbose")) {
-    setLogLevel("debug");
-  }
-
-  const { server, manager } = createServer(configManager);
-  await manager.init();
-
-  // Start watching settings file for hot-reload
-  configManager.startWatching();
-  configManager.on("changed", (newConfig) => {
-    manager.updateConfig(newConfig);
-  });
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-
-  logger.info("MCP server connected via stdio (proxy mode)");
-
-  // Start dashboard if --dashboard flag is present
-  let dashboardServer: { stop(): void } | undefined;
-  if (config.dashboard) {
-    const { DashboardServer } = await import("./dashboard/dashboard-server.js");
-    const ds = new DashboardServer(manager, config.dashboardPort, configManager);
-    await ds.start();
-    dashboardServer = ds;
-  }
-
-  const shutdown = () => {
-    logger.info("Shutting down...");
-    configManager.stopWatching();
-    dashboardServer?.stop();
-    manager.closeAll();
-    process.exit(0);
-  };
-
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
 }
 
 // ─── Agent registration helpers ───────────────────────────────
@@ -560,14 +481,8 @@ Daemon options (forge start):
   --verbose            Enable debug logging
   -d, --detach         Run as background daemon
 
-Backward-compatible stdio mode (no subcommand):
-  forge [options]      Run as stdio MCP server (auto-starts daemon)
-
-MCP config (recommended — add to ~/.claude/settings.json):
+MCP config (add to your agent or ~/.claude/settings.json):
   { "mcpServers": { "forge": { "type": "http", "url": "http://127.0.0.1:3141/mcp" } } }
-
-Legacy stdio config (.mcp.json):
-  { "mcpServers": { "forge": { "command": "node", "args": ["path/to/forge/dist/cli.js"] } } }
 
 Custom agents (add to ~/.forge/settings.json):
   { "agents": { "aider": { "command": "aider", "name": "Aider",
@@ -591,13 +506,28 @@ Custom agents (add to ~/.forge/settings.json):
       await cmdSetup(args.slice(1));
       break;
     default:
-      // Backward compat: no subcommand → stdio proxy mode
-      await cmdStdioProxy(args);
-      break;
+      process.stderr.write(
+        `Unknown command: ${command ?? "(none)"}\n\n` +
+        "Usage:\n" +
+        "  forge start [-d]           Start the Forge daemon\n" +
+        "  forge setup --agent <name> Configure an AI agent to use Forge\n" +
+        "  forge status               Show daemon status\n" +
+        "  forge stop                 Stop the daemon\n" +
+        "  forge --help               Full usage\n",
+      );
+      process.exit(1);
   }
 }
 
-main().catch((err) => {
-  logger.error("Fatal error", { error: String(err) });
-  process.exit(1);
-});
+// Only run when executed directly (not when imported by tests)
+const isDirectExecution =
+  process.argv[1] &&
+  (import.meta.url === `file://${process.argv[1]}` ||
+    import.meta.url === `file://${resolve(process.argv[1])}`);
+
+if (isDirectExecution) {
+  main().catch((err) => {
+    logger.error("Fatal error", { error: String(err) });
+    process.exit(1);
+  });
+}

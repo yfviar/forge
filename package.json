@@ -4,8 +4,7 @@
   "description": "Terminal MCP server for AI coding agents — spawn, manage, and monitor PTY sessions via MCP",
   "type": "module",
   "bin": {
-    "forge": "./dist/cli.js",
-    "forge-terminal-mcp": "./dist/cli.js"
+    "forge": "./dist/cli.js"
   },
   "main": "./dist/server.js",
   "files": [
