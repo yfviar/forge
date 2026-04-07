@@ -519,7 +519,15 @@ Custom agents (add to ~/.forge/settings.json):
   }
 }
 
-main().catch((err) => {
-  logger.error("Fatal error", { error: String(err) });
-  process.exit(1);
-});
+// Only run when executed directly (not when imported by tests)
+const isDirectExecution =
+  process.argv[1] &&
+  (import.meta.url === `file://${process.argv[1]}` ||
+    import.meta.url === `file://${resolve(process.argv[1])}`);
+
+if (isDirectExecution) {
+  main().catch((err) => {
+    logger.error("Fatal error", { error: String(err) });
+    process.exit(1);
+  });
+}
