@@ -63,7 +63,7 @@ export class TerminalSession {
     this.idleTimeout = opts.idleTimeout ?? 1_800_000;
     this.onExitCallback = opts.onExit;
 
-    const cols = opts.cols ?? 120;
+    const cols = opts.cols ?? 140;
     const rows = opts.rows ?? 24;
 
     this.ringBuffer = new RingBuffer(opts.bufferSize ?? 1_048_576);
