@@ -1,6 +1,7 @@
 import { spawn, execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { homedir } from "node:os";
 import { createServer } from "./server.js";
 import { ConfigManager } from "./utils/config.js";
@@ -79,7 +80,8 @@ async function cmdStart(args: string[]): Promise<void> {
   await manager.init();
 
   const { DashboardServer } = await import("./dashboard/dashboard-server.js");
-  const ds = new DashboardServer(manager, config.dashboardPort, configManager);
+  const vendorDir = join(import.meta.dirname ?? dirname(new URL(import.meta.url).pathname), "vendor");
+  const ds = new DashboardServer(manager, config.dashboardPort, configManager, vendorDir);
   await ds.start();
 
   // Start watching settings file for hot-reload
@@ -537,8 +539,8 @@ Custom agents (add to ~/.forge/settings.json):
 // Only run when executed directly (not when imported by tests)
 const isDirectExecution =
   process.argv[1] &&
-  (import.meta.url === `file://${process.argv[1]}` ||
-    import.meta.url === `file://${resolve(process.argv[1])}`);
+  (import.meta.url === pathToFileURL(process.argv[1]).href ||
+    import.meta.url === pathToFileURL(resolve(process.argv[1])).href);
 
 if (isDirectExecution) {
   main().catch((err) => {

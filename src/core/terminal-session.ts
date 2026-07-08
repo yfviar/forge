@@ -381,6 +381,18 @@ export class TerminalSession {
   private buildPtyEnv(extra?: Record<string, string>): Record<string, string> {
     const env: Record<string, string> = { ...process.env, ...extra } as Record<string, string>;
     delete env.CLAUDECODE;
+    // Force UTF-8 encoding for spawned processes
+    env.LANG = env.LANG || "en_US.UTF-8";
+    env.LC_ALL = env.LC_ALL || "en_US.UTF-8";
+    if (process.platform === "win32") {
+      env.PYTHONUTF8 = "1";
+      env.JAVA_TOOL_OPTIONS = [
+        env.JAVA_TOOL_OPTIONS,
+        "-Dfile.encoding=UTF-8",
+        "-Dsun.stdout.encoding=UTF-8",
+        "-Dsun.stderr.encoding=UTF-8",
+      ].filter(Boolean).join(" ");
+    }
     return env;
   }
 

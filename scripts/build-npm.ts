@@ -4,7 +4,7 @@
  *
  * Usage: bun run scripts/build-npm.ts
  */
-import { rm, chmod, readFile, writeFile } from "node:fs/promises";
+import { rm, chmod, readFile, writeFile, cp, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
 const ROOT = import.meta.dirname ? join(import.meta.dirname, "..") : process.cwd();
@@ -35,6 +35,13 @@ if (!result.success) {
   }
   process.exit(1);
 }
+
+// Copy vendor files for offline dashboard
+const vendorSrc = join(ROOT, "src", "dashboard", "frontend", "vendor");
+const vendorDest = join(DIST, "vendor");
+await mkdir(vendorDest, { recursive: true });
+await cp(vendorSrc, vendorDest, { recursive: true });
+console.log(`Copied vendor files to ${vendorDest}`);
 
 // Add shebang to cli.js and make it executable
 const cliPath = join(DIST, "cli.js");

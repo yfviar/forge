@@ -9,3 +9,5 @@ desktop/release/
 desktop/dist/
 desktop/node_modules/
 .claude/settings.local.json
+forge-dashboard-local.png
+forge-terminal-mcp-*.tgz
