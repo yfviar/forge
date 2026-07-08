@@ -62,6 +62,61 @@ function _ansiLineToHtml(line) {
   return out;
 }
 
+// Grep Console-style pattern highlighting
+var _GREP_RULES = [
+  { pattern: "\\\\bERROR\\\\b", style: "color:#f7768e;font-weight:bold" },
+  { pattern: "\\\\bWARN(?:ING)?\\\\b", style: "color:#e0af68;font-weight:bold" },
+  { pattern: "\\\\bINFO\\\\b", style: "color:#7dcfff" },
+  { pattern: "\\\\bDEBUG\\\\b", style: "color:#565f89" },
+  { pattern: "\\\\bTRACE\\\\b", style: "color:#565f89" },
+  { pattern: "\\\\bException\\\\b", style: "color:#f7768e;font-weight:bold" },
+  { pattern: "\\\\bCaused by:\\\\b", style: "color:#f7768e;font-weight:bold" },
+  { pattern: "\\\\bError:\\\\b", style: "color:#f7768e;font-weight:bold" },
+  { pattern: "\\\\bSELECT\\\\b", style: "color:#7aa2f7" },
+  { pattern: "\\\\bINSERT\\\\b", style: "color:#7aa2f7" },
+  { pattern: "\\\\bUPDATE\\\\b", style: "color:#7aa2f7" },
+  { pattern: "\\\\bDELETE\\\\b", style: "color:#f7768e" },
+  { pattern: "\\\\bFROM\\\\b", style: "color:#7aa2f7" },
+  { pattern: "\\\\bWHERE\\\\b", style: "color:#7aa2f7" },
+  { pattern: "\\\\bSET\\\\b", style: "color:#7aa2f7" },
+  { pattern: "\\\\bORDER BY\\\\b", style: "color:#7aa2f7" },
+  { pattern: "\\\\bVALUES\\\\b", style: "color:#7aa2f7" },
+  { pattern: "\\\\btrue\\\\b", style: "color:#9ece6a" },
+  { pattern: "\\\\bfalse\\\\b", style: "color:#f7768e" },
+  { pattern: "\\\\bnull\\\\b", style: "color:#565f89" },
+];
+
+// Line-level highlighting: apply CSS class based on log level
+function _lineLevelClass(line) {
+  if (line.indexOf(" ERROR ") >= 0 || line.indexOf("Exception") >= 0 || line.indexOf(" Error:") >= 0) return " hl-error";
+  if (line.indexOf(" WARN") >= 0) return " hl-warn";
+  if (line.indexOf(" DEBUG ") >= 0 || line.indexOf(" TRACE ") >= 0) return " hl-debug";
+  return "";
+}
+
+function _grepHighlight(html) {
+  for (var r = 0; r < _GREP_RULES.length; r++) {
+    var rule = _GREP_RULES[r];
+    var pattern = rule.pattern;
+    try {
+      // Split by HTML tags, process only text segments
+      var parts = html.split(/(<span[^>]*>|<\\/span>)/g);
+      var result = "";
+      for (var p = 0; p < parts.length; p++) {
+        if (parts[p].length > 0 && parts[p].charAt(0) === '<') {
+          result += parts[p];
+        } else {
+          result += parts[p].replace(new RegExp(pattern, "g"), '<span style="' + rule.style + '">$&</span>');
+        }
+      }
+      html = result;
+    } catch(e) {
+      // Skip invalid regex
+    }
+  }
+  return html;
+}
+
 var _ansiPending = "";
 
 function ansiToHtml(data) {
@@ -83,8 +138,10 @@ function ansiToHtml(data) {
     if (!line) continue;
     // Strip OSC sequences (ESC ] ... BEL)
     line = line.replace(/\\x1b\\][^\\x07]*\\x07/g, '');
+    var lineClass = _lineLevelClass(line);
     var html = _ansiLineToHtml(line);
-    out += '<div class="log-line">' + html + '</div>';
+    html = _grepHighlight(html);
+    out += '<div class="log-line' + lineClass + '">' + html + '</div>';
   }
   return out;
 }

@@ -1116,6 +1116,9 @@ export const CSS_STYLES = `
     white-space: pre-wrap; word-break: break-all;
     min-height: 1.2em;
   }
+  .log-line.hl-error { background: rgba(247, 118, 142, 0.08); border-left: 3px solid #f7768e; padding-left: 9px; }
+  .log-line.hl-warn { background: rgba(224, 175, 104, 0.06); border-left: 3px solid #e0af68; padding-left: 9px; }
+  .log-line.hl-debug { opacity: 0.55; }
 
   /* Pane Empty State */
   .pane-empty {
