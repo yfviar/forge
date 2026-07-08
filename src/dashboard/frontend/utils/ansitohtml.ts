@@ -5,81 +5,87 @@ function _escapeHtml(text) {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function _ansiBuildTag(codes, text) {
-  if (!text) return "";
-  var css = [];
-  var fg = -1, bg = -1;
-  for (var i = 0; i < codes.length; i++) {
-    var c = codes[i];
-    if (c === 0) { fg = -1; bg = -1; css = []; }
-    else if (c === 1) { css.push("font-weight:bold"); }
-    else if (c === 4) { css.push("text-decoration:underline"); }
-    else if (c >= 30 && c <= 37) { fg = c; }
-    else if (c >= 40 && c <= 47) { bg = c; }
-    else if (c >= 90 && c <= 97) { fg = c; }
-    else if (c >= 100 && c <= 107) { bg = c; }
-  }
-  if (fg >= 0) css.push("color:" + (_ANSI_PALETTE[fg] || "#a9b1d6"));
-  if (bg >= 0) css.push("background-color:" + (_ANSI_PALETTE[bg - 10] || "transparent"));
-  if (css.length === 0) return _escapeHtml(text);
-  return '<span style="' + css.join(";") + '">' + _escapeHtml(text) + '</span>';
-}
-
-function ansiToHtml(ansi) {
-  if (!ansi) return "";
-  var out = [];
-  var currentCodes = [];
-  var textBuf = "";
-  var ESC = String.fromCharCode(27);
-  var inCsi = false;
-  var csiBuf = "";
-
-  function flush() {
-    if (textBuf) { out.push(_ansiBuildTag(currentCodes, textBuf)); textBuf = ""; }
-  }
-
-  for (var i = 0; i < ansi.length; i++) {
-    var ch = ansi[i];
-    if (inCsi) {
-      if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')) {
-        inCsi = false;
-        if (ch === 'm') {
-          flush();
-          if (csiBuf === "" || csiBuf === "0") { currentCodes = []; }
-          else {
-            var parts = csiBuf.split(";");
-            var valid = [];
-            for (var p = 0; p < parts.length; p++) { var n = Number(parts[p]); if (!isNaN(n)) valid.push(n); }
-            if (valid.indexOf(0) >= 0) { currentCodes = valid; }
-            else { currentCodes = currentCodes.concat(valid); }
+function _ansiLineToHtml(line) {
+  if (!line) return "";
+  var out = "";
+  var codes = [];
+  var i = 0;
+  while (i < line.length) {
+    var ch = line[i];
+    // Check for CSI sequence: ESC [
+    if (ch === String.fromCharCode(27) && i + 1 < line.length && line[i + 1] === '[') {
+      i += 2;
+      // Read CSI parameter bytes until terminal character
+      var csiStart = i;
+      while (i < line.length && (line[i] < 'A' || line[i] > 'Z') && (line[i] < 'a' || line[i] > 'z')) i++;
+      var term = i < line.length ? line[i] : '';
+      if (term) i++;
+      if (term === 'm') {
+        // SGR sequence — parse parameters
+        var buf = line.substring(csiStart, i - 1);
+        if (buf === "" || buf === "0") { codes = []; }
+        else {
+          var parts = buf.split(";");
+          for (var p = 0; p < parts.length; p++) {
+            var n = Number(parts[p]);
+            if (!isNaN(n)) {
+              if (n === 0) codes = [];
+              else codes.push(n);
+            }
           }
         }
-        csiBuf = "";
-      } else {
-        csiBuf += ch;
       }
+      // Non-SGR CSI sequences are silently skipped
       continue;
     }
-    if (ch === ESC) {
-      flush();
-      inCsi = false;
-      csiBuf = "";
-      // Peek: if next char is '[' then enter CSI mode
-      if (i + 1 < ansi.length && ansi[i + 1] === '[') {
-        inCsi = true;
-        csiBuf = "";
-        i++;
-      } else {
-        // Non-CSI escape, skip until next ESC or end
-        while (i + 1 < ansi.length && ansi[i + 1] !== ESC) i++;
-      }
-      continue;
+    // Build style for current codes
+    var css = [];
+    var fg = -1, bg = -1;
+    for (var c = 0; c < codes.length; c++) {
+      var code = codes[c];
+      if (code === 1) css.push("font-weight:bold");
+      else if (code === 4) css.push("text-decoration:underline");
+      else if (code >= 30 && code <= 37) fg = code;
+      else if (code >= 40 && code <= 47) bg = code;
+      else if (code >= 90 && code <= 97) fg = code;
+      else if (code >= 100 && code <= 107) bg = code;
     }
-    if (ch === '\\r') { flush(); if (i + 1 < ansi.length && ansi[i + 1] === '\\n') i++; out.push('</div><div class="log-line">'); continue; }
-    if (ch === '\\n') { flush(); out.push('</div><div class="log-line">'); continue; }
-    textBuf += ch;
+    if (fg >= 0) css.push("color:" + (_ANSI_PALETTE[fg] || "#a9b1d6"));
+    if (bg >= 0) css.push("background-color:" + (_ANSI_PALETTE[bg - 10] || "transparent"));
+    if (css.length > 0) {
+      out += '<span style="' + css.join(";") + '">' + _escapeHtml(ch) + '</span>';
+    } else {
+      out += _escapeHtml(ch);
+    }
+    i++;
   }
-  flush();
-  return '<div class="log-line">' + out.join("") + '</div>';
+  return out;
+}
+
+var _ansiPending = "";
+
+function ansiToHtml(data) {
+  if (!data) return "";
+  _ansiPending += data;
+  // Only process complete lines (ending with \\n)
+  var newlineIdx = _ansiPending.lastIndexOf('\\n');
+  if (newlineIdx < 0) return ""; // no complete line yet
+  
+  var lines = _ansiPending.substring(0, newlineIdx + 1).split('\\n');
+  _ansiPending = _ansiPending.substring(newlineIdx + 1);
+  
+  var out = "";
+  for (var l = 0; l < lines.length; l++) {
+    var line = lines[l];
+    if (!line && line !== '0') continue; // skip empty
+    // Strip \\r from line endings and any remaining control chars
+    while (line.length > 0 && line.charCodeAt(line.length - 1) === 13) line = line.substring(0, line.length - 1);
+    if (!line) continue;
+    // Strip OSC sequences (ESC ] ... BEL)
+    line = line.replace(/\\x1b\\][^\\x07]*\\x07/g, '');
+    var html = _ansiLineToHtml(line);
+    out += '<div class="log-line">' + html + '</div>';
+  }
+  return out;
 }
 `;
