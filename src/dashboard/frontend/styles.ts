@@ -1106,6 +1106,16 @@ export const CSS_STYLES = `
   .pane-terminal-xterm {
     flex: 1; padding: 4px; min-height: 0; overflow: hidden;
   }
+  .log-view {
+    flex: 1; min-height: 0; overflow-y: auto;
+    background: #1a1b26; color: #a9b1d6;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, monospace;
+    font-size: 14px; padding: 8px 12px;
+  }
+  .log-line {
+    white-space: pre-wrap; word-break: break-all;
+    min-height: 1.2em;
+  }
 
   /* Pane Empty State */
   .pane-empty {

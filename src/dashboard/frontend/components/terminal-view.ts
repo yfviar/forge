@@ -58,6 +58,7 @@ function ActivityLog() {
 }
 
 function TerminalStatusBar() {
+  var _vm = viewModeVersion.value; // reactive: re-render on view mode toggle
   var activeSession = sessions.value.find(function(s) { return s.id === activeSessionId.value; });
   if (!activeSession) return null;
   var cwd = activeSession.cwd || '';
@@ -109,6 +110,9 @@ function TerminalStatusBar() {
       <span class="status-bar-spacer"></span>
       <button class=\${'status-bar-btn' + (editorMode.value ? ' active' : '')} aria-label="Toggle multi-line editor" aria-pressed=\${editorMode.value} title="Toggle multi-line editor (editor mode)" onClick=\${function() { editorMode.value = !editorMode.value; }}>
         \u270e Editor
+      </button>
+      <button class="status-bar-btn view-mode-btn" title=\${'Switch to ' + (getViewMode(activeSession.id) === 'log' ? 'Terminal' : 'Log') + ' view'} aria-label=\${'Current view: ' + (getViewMode(activeSession.id) === 'log' ? 'Log' : 'Terminal')} onClick=\${function() { toggleViewMode(activeSession.id); }}>
+        \${getViewMode(activeSession.id) === 'log' ? '\u{1F4C4} Log' : '\u{1F4BB} Terminal'}
       </button>
       \${voicePartialText.value && voiceState.value === 'recording' ? html\`<span class="voice-partial-text" title=\${voicePartialText.value}>\${voicePartialText.value}</span>\` : null}
       \${voiceError.value ? html\`<span class="voice-error-msg" role="alert">\${voiceError.value}</span>\` : null}

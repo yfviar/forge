@@ -51,6 +51,10 @@ var splitRoot = signal({ type: 'leaf', id: 'pane-1', sessionId: null });
 var focusedPaneId = signal('pane-1');
 var _paneCounter = 1;
 var paneTerminals = {}; // paneId -> { term, fitAddon, sessionId }
+var logContainers = {}; // sessionId -> DOM element (log view)
+var logAutoScroll = {}; // sessionId -> boolean
+var viewModes = {}; // sessionId -> 'log' | 'term'
+var viewModeVersion = signal(0); // incremented on toggle to trigger re-render
 var splitGeneration = signal(0);
 
 function _nextPaneId() { return 'pane-' + (++_paneCounter); }
@@ -172,6 +176,25 @@ function registerPaneTerminal(paneId, term, fitAddon, sid) {
 
 function unregisterPaneTerminal(paneId) {
   delete paneTerminals[paneId];
+}
+
+function registerLogContainer(sessionId, el) {
+  logContainers[sessionId] = el;
+  logAutoScroll[sessionId] = true;
+}
+
+function unregisterLogContainer(sessionId) {
+  delete logContainers[sessionId];
+  delete logAutoScroll[sessionId];
+}
+
+function getViewMode(sessionId) {
+  return viewModes[sessionId] || 'log';
+}
+
+function toggleViewMode(sessionId) {
+  viewModes[sessionId] = getViewMode(sessionId) === 'log' ? 'term' : 'log';
+  viewModeVersion.value++;
 }
 
 function focusPane(paneId) {
@@ -353,6 +376,19 @@ function handleMessage(msg) {
               }
             });
           })(_pt);
+        }
+      }
+      // Write to log view container (HTML)
+      var _lc = logContainers[msg.sessionId];
+      if (_lc) {
+        var _html = ansiToHtml(msg.data);
+        _lc.insertAdjacentHTML('beforeend', _html);
+        // Limit lines: remove earliest when over 10000
+        var _lines = _lc.querySelectorAll('.log-line');
+        while (_lines.length > 10000) { _lines[0].remove(); _lines = _lc.querySelectorAll('.log-line'); }
+        // Auto-scroll to bottom
+        if (logAutoScroll[msg.sessionId] !== false) {
+          _lc.scrollTop = _lc.scrollHeight;
         }
       }
       break;

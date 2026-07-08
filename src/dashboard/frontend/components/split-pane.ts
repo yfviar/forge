@@ -3,10 +3,14 @@ function PaneTerminal(props) {
   var paneId = props.paneId;
   var sessionId = props.sessionId;
   var containerRef = preactHooks.useRef(null);
+  var logRef = preactHooks.useRef(null);
   var termRef = preactHooks.useRef(null);
   var fitRef = preactHooks.useRef(null);
   var roRef = preactHooks.useRef(null);
   var subRef = preactHooks.useRef(null);
+
+  var viewMode = getViewMode(sessionId);
+  var _vmv = viewModeVersion.value; // reactive reference for re-render
 
   function cleanupTerm() {
     if (termRef.current) {
@@ -19,6 +23,7 @@ function PaneTerminal(props) {
       roRef.current = null;
     }
     unregisterPaneTerminal(paneId);
+    unregisterLogContainer(sessionId);
     if (subRef.current) {
       wsSend({ type: 'unsubscribe', sessionId: subRef.current });
       subRef.current = null;
@@ -33,6 +38,17 @@ function PaneTerminal(props) {
     }
 
     cleanupTerm();
+
+    // Register log container
+    if (logRef.current) {
+      registerLogContainer(sessionId, logRef.current);
+      logRef.current.addEventListener('scroll', function() {
+        var el = logRef.current;
+        if (el) {
+          logAutoScroll[sessionId] = el.scrollHeight - el.scrollTop - el.clientHeight < 30;
+        }
+      });
+    }
 
     var term = new Terminal({
       theme: {
@@ -166,7 +182,8 @@ function PaneTerminal(props) {
   }, []);
 
   return html\`<div class="pane-terminal-wrap" onClick=\${handleClick} onDragOver=\${onPaneDragOver} onDragLeave=\${onPaneDragLeave} onDrop=\${onPaneDrop} style="position:relative">
-    <div class="pane-terminal-xterm" ref=\${containerRef}></div>
+    <div class="pane-terminal-xterm" ref=\${containerRef} style=\${'display:' + (viewMode === 'term' ? 'block' : 'none')}></div>
+    <div class="log-view" ref=\${logRef} style=\${'display:' + (viewMode === 'log' ? 'block' : 'none')}></div>
     \${dropZone ? html\`<div class="pane-drop-overlay pane-drop-\${dropZone}" style=\${overlayStyle}></div>\` : null}
   </div>\`;
 }

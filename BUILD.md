@@ -13,7 +13,13 @@
 | `src/dashboard/frontend/vendor/` | 8 个前端库文件 | 替代被墙的 jsdelivr CDN |
 | `src/core/terminal-session.ts:381-395` | `buildPtyEnv` 注入 UTF-8 环境变量 | **修复中文乱码（第 1 层）**：强制 LANG/LC_ALL/PYTHONUTF8/JAVA_TOOL_OPTIONS |
 | `src/core/node-pty-adapter.ts` | Windows 上用 `chcp 65001` 切换控制台代码页为 UTF-8 | **修复中文乱码（第 2 层 · 根因）**：ConPTY 默认用系统代码页 GBK 解释 UTF-8 输出 |
-| `src/dashboard/frontend/components/split-pane.ts:49` | xterm.js 加 `wordWrap: true` | **软换行**：长日志行自动折行，无需横向滚动 |
+| `src/dashboard/frontend/components/split-pane.ts:49` | xterm.js 加 `wordWrap: true`（已回退） | v5 不存在此选项，已改方案 |
+| `src/dashboard/frontend/utils/ansitohtml.ts` | ANSI 转义码 → HTML 转换器 | **日志视图核心**：解析 SGR 码生成彩色 HTML |
+| `src/dashboard/frontend/state.ts` | 新增 logContainers/viewModes/logAutoScroll + output 双写 | WebSocket 数据同时写给 log 容器和 xterm |
+| `src/dashboard/frontend/components/split-pane.ts` | PaneTerminal 支持 log/term 双模式 + 容器注册 | 默认日志视图，按 viewMode 显/隐 |
+| `src/dashboard/frontend/components/terminal-view.ts` | 状态栏新增视图切换按钮 | Log / Terminal 一键切换 |
+| `src/dashboard/frontend/styles.ts` | 新增 .log-view / .log-line 样式 | 折行 + Tokyo Night 配色 |
+| `src/dashboard/frontend/app.ts` | 注册 ANSI_HTML_JS 模块 | 构建时内联到 Dashboard HTML |
 
 ## 前置依赖
 

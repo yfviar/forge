@@ -6,6 +6,7 @@ import { CHAT_VIEW_JS } from "./components/chat-view.js";
 import { MODALS_JS } from "./components/modals.js";
 import { CODE_REVIEW_JS } from "./components/code-review.js";
 import { SPLIT_PANE_JS } from "./components/split-pane.js";
+import { ANSI_HTML_JS } from "./utils/ansitohtml.js";
 
 const APP_COMPONENT_JS = `
 function EmptyState() {
@@ -220,6 +221,7 @@ var batch = preactSignals.batch;
 
 // --- Utils ---
 ${UTILS_JS}
+${ANSI_HTML_JS}
 
 // --- State ---
 ${STATE_JS}
