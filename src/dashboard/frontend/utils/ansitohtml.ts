@@ -75,7 +75,7 @@ function ansiToHtml(ansi) {
       }
       continue;
     }
-    if (ch === '\\r') { flush(); out.push('</div><div class="log-line">'); continue; }
+    if (ch === '\\r') { flush(); if (i + 1 < ansi.length && ansi[i + 1] === '\\n') i++; out.push('</div><div class="log-line">'); continue; }
     if (ch === '\\n') { flush(); out.push('</div><div class="log-line">'); continue; }
     textBuf += ch;
   }
