@@ -7,6 +7,7 @@ import { MODALS_JS } from "./components/modals.js";
 import { CODE_REVIEW_JS } from "./components/code-review.js";
 import { SPLIT_PANE_JS } from "./components/split-pane.js";
 import { ANSI_HTML_JS } from "./utils/ansitohtml.js";
+import { THEMES_JS } from "./utils/themes.js";
 
 const APP_COMPONENT_JS = `
 function EmptyState() {
@@ -204,6 +205,8 @@ if (window.forgeDesktop && window.forgeDesktop.isDesktop) {
 }
 
 // Mount
+// Init theme before mount
+initTheme();
 preact.render(html\`<\${App} />\`, document.getElementById('app'));
 
 // Connect WebSocket
@@ -218,6 +221,9 @@ var signal = preactSignals.signal;
 var computed = preactSignals.computed;
 var effect = preactSignals.effect;
 var batch = preactSignals.batch;
+
+// --- Theme (before everything) ---
+${THEMES_JS}
 
 // --- Utils ---
 ${UTILS_JS}
@@ -236,5 +242,7 @@ ${CODE_REVIEW_JS}
 
 // --- App ---
 ${APP_COMPONENT_JS}
+// Init theme after mount
+initTheme();
 })();
 `;

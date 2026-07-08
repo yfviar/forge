@@ -108,6 +108,9 @@ function TerminalStatusBar() {
       \${durationText ? html\`<span class="status-bar-item" style="color:#7982a9" aria-label=\${'Duration: ' + durationText}>\u23f1 \${durationText}</span>\` : null}
       \${activityText ? html\`<span class="status-bar-item \${'activity-' + (activityText === 'Active' ? 'active' : 'idle')}" role="status">\${activityText}</span>\` : null}
       <span class="status-bar-spacer"></span>
+      <button class="status-bar-btn theme-btn" title="Switch theme" aria-label="Current theme: " + getTheme().name onClick=\${function() { cycleTheme(); }}>
+        \u{1F3A8} \${getTheme().name}
+      </button>
       <button class=\${'status-bar-btn' + (editorMode.value ? ' active' : '')} aria-label="Toggle multi-line editor" aria-pressed=\${editorMode.value} title="Toggle multi-line editor (editor mode)" onClick=\${function() { editorMode.value = !editorMode.value; }}>
         \u270e Editor
       </button>
