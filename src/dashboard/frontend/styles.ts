@@ -137,6 +137,20 @@ export const CSS_STYLES = `
   }
   .tab-btn:hover { color: var(--fg); }
   .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-btn-show-chats {
+    background: none; border: none; color: var(--fg-dim); cursor: pointer;
+    padding: 8px 10px; font-size: 16px; font-weight: 600; font-family: inherit;
+    border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s;
+  }
+  .tab-btn-show-chats:hover { color: var(--accent); }
+  .tab-btn-wrap { display: flex; flex: 1; align-items: stretch; }
+  .tab-btn-wrap .tab-btn { flex: 1; }
+  .tab-btn-close {
+    background: none; border: none; color: var(--fg-dim); cursor: pointer;
+    padding: 0 6px; font-size: 14px; font-family: inherit; line-height: 1;
+    border-bottom: 2px solid transparent;
+  }
+  .tab-btn-close:hover { color: var(--red); }
 
   #terminals-panel, #chats-panel {
     flex: 1;

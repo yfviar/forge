@@ -32,6 +32,7 @@ const chatSearchQuery = signal('');
 const activeSessionMenu = signal(null);
 const renamingSessionId = signal(null);
 const chatMessages = signal([]);
+const showChats = signal(localStorage.getItem("forge-show-chats") === "true");
 const voiceAvailable = signal(false);
 const voiceState = signal('idle'); // 'idle' | 'recording' | 'transcribing'
 const voiceError = signal(''); // brief error message shown in status bar

@@ -23,7 +23,8 @@ function TabBar() {
         class=\${'tab-btn' + (currentTab.value === 'terminals' ? ' active' : '')}
         onClick=\${function() { currentTab.value = 'terminals'; activeChatId.value = null; }}
       >Terminals</button>
-      <button
+      \${!showChats.value ? html\`<button class="tab-btn-show-chats" title="Show Chats tab" onClick=\${function() { showChats.value = true; localStorage.setItem("forge-show-chats", "true"); }}>+</button>\` : null}
+      \${showChats.value ? html\`<div class="tab-btn-wrap"><button
         role="tab"
         id="tab-chats"
         aria-selected=\${currentTab.value === 'chats'}
@@ -31,7 +32,7 @@ function TabBar() {
         tabindex=\${currentTab.value === 'chats' ? '0' : '-1'}
         class=\${'tab-btn' + (currentTab.value === 'chats' ? ' active' : '')}
         onClick=\${function() { currentTab.value = 'chats'; loadChats(); }}
-      >Chats</button>
+      >Chats</button><button class="tab-btn-close" title="Hide Chats tab" onClick=\${function(e) { e.stopPropagation(); showChats.value = false; localStorage.removeItem("forge-show-chats"); if (currentTab.value === 'chats') currentTab.value = 'terminals'; }} aria-label="Hide Chats tab">×</button></div>\` : null}
     </div>
   \`;
 }
@@ -705,7 +706,7 @@ function Sidebar() {
         ? html\`<div id="terminals-panel" role="tabpanel" aria-labelledby="tab-terminals"><div class="terminals-toolbar"><button class=\${'auto-follow-btn' + (autoFollow.value ? ' active' : '')} aria-label="Auto-follow new sessions" aria-pressed=\${autoFollow.value} title=\${autoFollow.value ? 'Auto-follow new sessions (on)' : 'Auto-follow new sessions (off)'} onClick=\${function() { autoFollow.value = !autoFollow.value; }}>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v10M8 13l3-3M8 13l-3-3"/></svg>
           </button></div><div id="session-list"><\${SessionList} /></div></div>\`
-        : html\`<\${ChatsPanel} />\`
+        : (showChats.value ? html\`<\${ChatsPanel} />\` : null)
       }
       <\${ConnectionStatus} />
     </nav>
